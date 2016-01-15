@@ -31,7 +31,7 @@
 #define M41T62_AHRS         0x0C // Alarm Hour
 #define M41T62_AMIN         0x0D // Alarm Minutes
 #define M41T62_ASEC         0x0E // Alarm Seconds
-#define M41T62_FLAGS        0x0F // Flags
+#define M41T62_FLAGS        0x0F // Flags: WDF | AF | 0 | 0 | 0 | OF | 0 | 0
 
 #define SECONDS_PER_DAY             86400L
 #define SECONDS_FROM_1970_TO_2000   946684800
@@ -238,6 +238,7 @@ static uint8_t bcd2bin (uint8_t val) { return val - 6 * (val >> 4); }
 static uint8_t bin2bcd (uint8_t val) { return val + 6 * (val / 10); }
 
 uint8_t RTC_M41T62::begin(void) {
+  outDrive(1); // Set output bit to drive IRQ pin high by default
   return 1;
 }
 
@@ -332,6 +333,162 @@ void RTC_M41T62::writeSqwPinMode(M41T62SqwPinMode mode) {
   WIRE.endTransmission();
 }
 
+void RTC_M41T62::outDrive(bool hilow){
+  int currentByte;
+
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_CAL);
+  WIRE.endTransmission();
+  WIRE.requestFrom(M41T62_ADDRESS, 1);
+  currentByte = WIRE._I2C_READ();
+
+  if (hilow){
+    bitWrite(currentByte,7,1);
+  }else{
+    bitWrite(currentByte,7,0);
+  }
+
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_CAL);
+  WIRE._I2C_WRITE(currentByte);
+  WIRE.endTransmission();
+}
+
+void RTC_M41T62::alarmEnable(bool onOff){
+  int currentByte;
+
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_SQWEN_AMO);
+  WIRE.endTransmission();
+  WIRE.requestFrom(M41T62_ADDRESS, 1);
+  currentByte = WIRE._I2C_READ();
+
+  if (onOff){
+    bitWrite(currentByte,7,1);
+  }else{
+    bitWrite(currentByte,7,0);
+  }
+
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_SQWEN_AMO);
+  WIRE._I2C_WRITE(currentByte);
+  WIRE.endTransmission();
+}
+
+void RTC_M41T62::alarmRepeat(int mode){ // set alarm repeat mode
+  int byte1, byte2, byte3, byte4;
+  
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_ADOM);
+  WIRE.endTransmission();
+  WIRE.requestFrom(M41T62_ADDRESS, 4);
+  byte1 = WIRE._I2C_READ();
+  byte2 = WIRE._I2C_READ();
+  byte3 = WIRE._I2C_READ();
+  byte4 = WIRE._I2C_READ();
+  
+  switch(mode){
+    case 1: // once per second
+        bitWrite(byte4,7,1);
+        bitWrite(byte3,7,1);
+        bitWrite(byte2,7,1);
+        bitWrite(byte1,7,1);
+        bitWrite(byte1,6,1); break;
+    case 2: // once per minute
+        bitWrite(byte4,7,0);
+        bitWrite(byte3,7,1);
+        bitWrite(byte2,7,1);
+        bitWrite(byte1,7,1);
+        bitWrite(byte1,6,1); break;
+    case 3: // once per hour
+        bitWrite(byte4,7,0);
+        bitWrite(byte3,7,0);
+        bitWrite(byte2,7,1);
+        bitWrite(byte1,7,1);
+        bitWrite(byte1,6,1); break;
+    case 4: // once per day
+        bitWrite(byte4,7,0);
+        bitWrite(byte3,7,0);
+        bitWrite(byte2,7,0);
+        bitWrite(byte1,7,1);
+        bitWrite(byte1,6,1); break;
+    case 5: // once per month
+        bitWrite(byte4,7,0);
+        bitWrite(byte3,7,0);
+        bitWrite(byte2,7,0);
+        bitWrite(byte1,7,0);
+        bitWrite(byte1,6,1); break;
+    case 6: // once per year
+        bitWrite(byte4,7,0);
+        bitWrite(byte3,7,0);
+        bitWrite(byte2,7,0);
+        bitWrite(byte1,7,0);
+        bitWrite(byte1,6,0); break;
+  }
+
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_ADOM);
+  WIRE._I2C_WRITE(byte1);
+  WIRE._I2C_WRITE(byte2);
+  WIRE._I2C_WRITE(byte3);
+  WIRE._I2C_WRITE(byte4);
+  WIRE.endTransmission();
+  pointerReset();
+}
+
+int RTC_M41T62::alarmRepeat(){ // return alarm repeat mode
+  int byte1, byte2, byte3, byte4, mode = 0, retVal = 0;
+  
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_ADOM);
+  WIRE.endTransmission();
+  WIRE.requestFrom(M41T62_ADDRESS, 4);
+  byte1 = WIRE._I2C_READ();
+  byte2 = WIRE._I2C_READ();
+  byte3 = WIRE._I2C_READ();
+  byte4 = WIRE._I2C_READ();
+  bitWrite(mode,0,bitRead(byte4,7));
+  bitWrite(mode,1,bitRead(byte3,7));
+  bitWrite(mode,2,bitRead(byte2,7));
+  bitWrite(mode,3,bitRead(byte1,7));
+  bitWrite(mode,4,bitRead(byte1,6));
+  
+  switch(mode) {
+    case 31: retVal = 1; break; // once per second
+    case 30: retVal = 2; break; // once per minute
+    case 28: retVal = 3; break; // once per hour
+    case 24: retVal = 4; break; // once per day
+    case 16: retVal = 5; break; // once per month
+    case 0:  retVal = 6; break; // once per year
+    default: retVal = 0; break; // ERROR
+  }
+  pointerReset();
+  return retVal;
+}
+
+int RTC_M41T62::checkFlags(){
+  // Returns 1 if Alarm flag is set, 0 if not. Ignores watchdog & oscillator fail
+  int byte1;
+  
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_FLAGS);
+  WIRE.endTransmission();
+  WIRE.requestFrom(M41T62_ADDRESS, 1);
+  byte1 = WIRE._I2C_READ();
+  if (bitRead(byte1,6) == 1){
+    return 1;
+  }else{
+    return 0;
+  }
+}
+
+void RTC_M41T62::pointerReset(){
+  // reset address pointer to 0 per datasheet note pg23
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(0);
+  WIRE.endTransmission();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // RTC_Millis implementation
 
@@ -359,6 +516,10 @@ void RTC_M41T62::printAllBits(){
     Serial.print(" : 0x");
     Serial.println(regCount, HEX);
   }
+  // reset address pointer to 0 per datasheet note pg23
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(0);
+  WIRE.endTransmission();
 }
 
 void RTC_M41T62::printBits(byte myByte){

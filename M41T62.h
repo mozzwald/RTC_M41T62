@@ -70,8 +70,18 @@ public:
     static DateTime now();
     static M41T62SqwPinMode readSqwPinMode();
     static void writeSqwPinMode(M41T62SqwPinMode mode);
+    static void outDrive(bool hilow);
+    void alarmEnable(bool onOff);
+    void alarmRepeat(int mode);
+    int alarmRepeat();
+    int checkFlags();
+
+    // Functions for testing only:
     static void printAllBits();
     static void printBits(byte myByte);
+
+private:
+    static void pointerReset();
 };
 
 // RTC using the internal millis() clock, has to be initialized before use

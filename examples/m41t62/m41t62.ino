@@ -1,4 +1,4 @@
-// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
+// Date and time functions using a M41T62 RTC connected via I2C and Wire lib
 
 #include <Wire.h>
 #include "M41T62.h"

@@ -280,11 +280,11 @@ DateTime RTC_M41T62::now() {
 
   WIRE.requestFrom(M41T62_ADDRESS, 7, 1); // 7
   uint8_t ss = bcd2bin(WIRE._I2C_READ() & 0x7F);
-  uint8_t mm = bcd2bin(WIRE._I2C_READ());
-  uint8_t hh = bcd2bin(WIRE._I2C_READ());
+  uint8_t mm = bcd2bin(WIRE._I2C_READ() & 0x7F);
+  uint8_t hh = bcd2bin(WIRE._I2C_READ() & 0x3F);
   WIRE._I2C_READ(); // Skip day of week
-  uint8_t d = bcd2bin(WIRE._I2C_READ());
-  uint8_t m = bcd2bin(WIRE._I2C_READ());
+  uint8_t d = bcd2bin(WIRE._I2C_READ() & 0x3F);
+  uint8_t m = bcd2bin(WIRE._I2C_READ() & 0x1F);
   uint16_t y = bcd2bin(WIRE._I2C_READ()) + 2000;
   return DateTime (y, m, d, hh, mm, ss);
 }

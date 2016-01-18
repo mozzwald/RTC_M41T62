@@ -66,14 +66,13 @@ class RTC_M41T62 {
 public:
     static uint8_t begin(void);
     static void adjust(const DateTime& dt);
-    uint8_t isrunning(void);
     static DateTime now();
     static M41T62SqwPinMode readSqwPinMode();
     static void writeSqwPinMode(M41T62SqwPinMode mode);
-    static void outDrive(bool hilow);
     void alarmEnable(bool onOff);
     void alarmRepeat(int mode);
     int alarmRepeat();
+    static void alarmSet(const DateTime& dt);
     int checkFlags();
 
     // Functions for testing only:

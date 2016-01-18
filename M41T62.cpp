@@ -238,18 +238,28 @@ static uint8_t bcd2bin (uint8_t val) { return val - 6 * (val >> 4); }
 static uint8_t bin2bcd (uint8_t val) { return val + 6 * (val / 10); }
 
 uint8_t RTC_M41T62::begin(void) {
-  outDrive(1); // Set output bit to drive IRQ pin high by default
-  return 1;
-}
+  /*  The M41T62 "OUT" bit should be set to 1 (HIGH) by default when
+   *  used with this library. This keeps the interrupt pin high
+   *  even if alarm, watchdog and oscillator bits are not enabled.
+   *  Interrupts are active-low. Default OUT bit is 0 so we can
+   *  assume this rtc hasn't been used with this library.
+   */
+  int currentByte;
 
-uint8_t RTC_M41T62::isrunning(void) {
   WIRE.beginTransmission(M41T62_ADDRESS);
-  WIRE._I2C_WRITE(0);
+  WIRE._I2C_WRITE(M41T62_CAL);
   WIRE.endTransmission();
-
   WIRE.requestFrom(M41T62_ADDRESS, 1);
-  uint8_t ss = WIRE._I2C_READ();
-  return !(ss>>7);
+  currentByte = WIRE._I2C_READ();
+
+  if (bitRead(currentByte,7)){
+    bitWrite(currentByte,7,1);
+    WIRE.beginTransmission(M41T62_ADDRESS);
+    WIRE._I2C_WRITE(M41T62_CAL);
+    WIRE._I2C_WRITE(currentByte);
+    WIRE.endTransmission();
+  }
+  return 1;
 }
 
 void RTC_M41T62::adjust(const DateTime& dt) {
@@ -329,27 +339,6 @@ void RTC_M41T62::writeSqwPinMode(M41T62SqwPinMode mode) {
 
   WIRE.beginTransmission(M41T62_ADDRESS);
   WIRE._I2C_WRITE(M41T62_SQWEN_AMO);
-  WIRE._I2C_WRITE(currentByte);
-  WIRE.endTransmission();
-}
-
-void RTC_M41T62::outDrive(bool hilow){
-  int currentByte;
-
-  WIRE.beginTransmission(M41T62_ADDRESS);
-  WIRE._I2C_WRITE(M41T62_CAL);
-  WIRE.endTransmission();
-  WIRE.requestFrom(M41T62_ADDRESS, 1);
-  currentByte = WIRE._I2C_READ();
-
-  if (hilow){
-    bitWrite(currentByte,7,1);
-  }else{
-    bitWrite(currentByte,7,0);
-  }
-
-  WIRE.beginTransmission(M41T62_ADDRESS);
-  WIRE._I2C_WRITE(M41T62_CAL);
   WIRE._I2C_WRITE(currentByte);
   WIRE.endTransmission();
 }
@@ -464,6 +453,18 @@ int RTC_M41T62::alarmRepeat(){ // return alarm repeat mode
   }
   pointerReset();
   return retVal;
+}
+
+void RTC_M41T62::alarmSet(const DateTime& dt) {
+  WIRE.beginTransmission(M41T62_ADDRESS);
+  WIRE._I2C_WRITE(M41T62_SQWEN_AMO);
+  WIRE._I2C_WRITE(bin2bcd(dt.month()));
+  WIRE._I2C_WRITE(bin2bcd(dt.day()));
+  WIRE._I2C_WRITE(bin2bcd(dt.hour()));
+  WIRE._I2C_WRITE(bin2bcd(dt.minute()));
+  WIRE._I2C_WRITE(bin2bcd(dt.second()));
+  WIRE._I2C_WRITE(0);
+  WIRE.endTransmission();
 }
 
 int RTC_M41T62::checkFlags(){

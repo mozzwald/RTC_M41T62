@@ -279,7 +279,6 @@ void RTC_M41T62::adjust(const DateTime& dt) {
   WIRE._I2C_WRITE(bin2bcd(dt.day()));
   WIRE._I2C_WRITE(bin2bcd(dt.month()));
   WIRE._I2C_WRITE(bin2bcd(dt.year() - 2000));
-  WIRE._I2C_WRITE(0);
   WIRE.endTransmission();
 }
 

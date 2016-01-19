@@ -241,8 +241,8 @@ uint8_t RTC_M41T62::begin(void) {
   /*  The M41T62 "OUT" bit should be set to 1 (HIGH) by default when
    *  used with this library. This keeps the interrupt pin high
    *  even if alarm, watchdog and oscillator bits are not enabled.
-   *  Interrupts are active-low. Default OUT bit is 0 so we can
-   *  assume this rtc hasn't been used with this library.
+   *  Interrupts are active-low. Default OUT bit is 0 so we set it
+   *  to 1 here.
    */
   int currentByte;
 
@@ -510,8 +510,8 @@ void RTC_M41T62::printAllBits(){
   WIRE._I2C_WRITE(0);	
   WIRE.endTransmission();
 
-  WIRE.requestFrom(M41T62_ADDRESS, 15);
-  for(int regCount = 0; regCount < 15; regCount++){
+  WIRE.requestFrom(M41T62_ADDRESS, 16);
+  for(int regCount = 0; regCount < 16; regCount++){
     printBits(WIRE._I2C_READ());
     Serial.print(" : 0x");
     Serial.println(regCount, HEX);
